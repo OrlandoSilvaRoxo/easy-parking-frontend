@@ -1,7 +1,7 @@
 // Cadastro.js
 import React, { useState } from 'react';
 import { View, TextInput, Button, StyleSheet, Text } from 'react-native';
-import { initDatabase, getDbConnection, createTables, getNextUsuarioId, insertUsuario } from '../BancoParking/Database.js';
+import axios from 'axios'; 
 
 const Cadastro = ({ navigation }) => {
   const [nome, setNome] = useState('');
@@ -13,12 +13,16 @@ const Cadastro = ({ navigation }) => {
 
   const handleCadastro = async () => {
     try {
-      await initDatabase();
-      const db = await getDbConnection();
-      await createTables(db);
-      const nextId = await getNextUsuarioId(db);
-      await insertUsuario(db, nextId, nome, sobrenome, telefone1, placaCarro1, email, senha);
-      console.log('Cadastro realizado com sucesso!');
+      const payload = {
+        nome, 
+        sobrenome, 
+        telefone: telefone1, 
+        placaCarro: placaCarro1, 
+        email, 
+        senha
+      };
+      const response = await axios.post('http://your-backend-url.com/cadastro', payload);
+      console.log('Cadastro realizado com sucesso:', response.data);
       navigation.navigate('Login');
     } catch (error) {
       console.error('Erro ao cadastrar:', error);
