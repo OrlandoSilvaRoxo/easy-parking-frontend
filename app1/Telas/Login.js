@@ -13,7 +13,7 @@ const Login = ({ navigation }) => {
         password: password
       };
 
-      const response = await axios.post('http://localhost:8443/user/login/', payload);
+      const response = await axios.post('http://192.168.0.101:8443/user/login/', payload);
 
       if (response.data === true) {
         navigation.navigate('Vagas'); // Navigate to Vagas screen

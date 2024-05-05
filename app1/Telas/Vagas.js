@@ -1,162 +1,145 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Button, TextInput, ScrollView, Alert } from 'react-native';
+import axios from 'axios';
 import Slider from '@react-native-community/slider';
 
-const Vagas = ({navigation}) => {
-  const [vagasDisponiveis, setVagasDisponiveis] = useState([true, true, true, true, true, true, true, true, true, true, true, true, true, true, true]);
-  const [dia, setDia] = useState('');
-  const [horas, setHoras] = useState(0.5); // 30 minutos
-  const [vagaSelecionada, setVagaSelecionada] = useState(null);
-  const [tempoRestante, setTempoRestante] = useState(null);
+const Vagas = ({ navigation }) => {
+  const [vagas, setVagas] = useState([]);
+  const [horas, setHoras] = useState(0.5); // 30 minutos por padrão
+  const [tempoRestantes, setTempoRestantes] = useState({});
   const precoPorMeiaHora = 20;
 
-  useEffect(() => {
-    let timer;
-    if (vagaSelecionada !== null) {
-      const duracaoEmSegundos = horas * 3600;
-      setTempoRestante(duracaoEmSegundos);
-
-      timer = setInterval(() => {
-        setTempoRestante((prevTempo) => {
-          if (prevTempo === 0) {
-            clearInterval(timer);
-            setVagaSelecionada(null);
-            const novasVagas = [...vagasDisponiveis];
-            novasVagas[vagaSelecionada - 1] = true;
-            setVagasDisponiveis(novasVagas);
-            return 0;
-          }
-          return prevTempo - 1;
-        });
-      }, 1000);
-    } else {
-      clearInterval(timer);
-    }
-
-    return () => clearInterval(timer);
-  }, [vagaSelecionada, horas]);
-
-  const reservarVaga = (numero) => {
-    if (vagasDisponiveis[numero - 1]) {
-      const precoTotal = horas * precoPorMeiaHora;
-      alert(`Vaga ${numero} reservada com sucesso!\nData: ${dia}\nHoras: ${horas}\nPreço R$ ${precoTotal.toFixed(2)}`);
-      setVagaSelecionada(numero);
-      const novasVagas = [...vagasDisponiveis];
-      novasVagas[numero - 1] = false;
-      setVagasDisponiveis(novasVagas);
-    } else if (vagaSelecionada === numero) {
-      alert(`Reserva da Vaga ${numero} cancelada.`);
-      setVagaSelecionada(null);
-      const novasVagas = [...vagasDisponiveis];
-      novasVagas[numero - 1] = true;
-      setVagasDisponiveis(novasVagas);
-    } else {
-      alert(`Desculpe, a vaga ${numero} já está reservada.`);
-    }
-  };
-
   const formatarTempo = (segundos) => {
-    const horas = Math.floor(segundos / 3600);
-    const minutos = Math.floor((segundos % 3600) / 60);
-    const segundosRestantes = segundos % 60;
-
-    return `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segundosRestantes.toString().padStart(2, '0')}`;
+    const h = Math.floor(segundos / 3600);
+    const m = Math.floor((segundos % 3600) / 60);
+    const s = segundos % 60;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const formatarData = (data) => {
-    if (data.length === 8) {
-      const dia = data.substring(0, 2);
-      const mes = data.substring(2, 4);
-      const ano = data.substring(4, );
-      return `${dia}/${mes}/${ano}`;
+  const fetchVagas = async () => {
+    try {
+      const response = await axios.get('http://192.168.0.101:8443/parking/get-all/');
+      const sortedVagas = response.data.sort((a, b) => a.id - b.id);
+      setVagas(sortedVagas);
+      const initialTimers = sortedVagas.reduce((acc, vaga) => {
+        acc[vaga.id] = vaga.occupied ? horas * 3600 : null;
+        return acc;
+      }, {});
+      setTempoRestantes(initialTimers);
+    } catch (error) {
+      console.error('Erro ao buscar vagas:', error);
     }
-    return data;
+  };
+
+  const criarVaga = async () => {
+    try {
+      await axios.post('http://192.168.0.101:8443/parking/create/');
+      fetchVagas();
+    } catch (error) {
+      console.error('Erro ao criar vaga:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchVagas();
+  }, []);
+
+  useEffect(() => {
+    const timers = {};
+    Object.entries(tempoRestantes).forEach(([id, segundos]) => {
+      if (segundos > 0) {
+        timers[id] = setInterval(() => {
+          setTempoRestantes(prev => {
+            const nextTime = prev[id] - 1;
+            if (nextTime === 0) {
+              clearInterval(timers[id]);
+              freeParking(id);
+            }
+            return { ...prev, [id]: Math.max(0, nextTime) };
+          });
+        }, 1000);
+      }
+    });
+    return () => {
+      Object.values(timers).forEach(clearInterval);
+    };
+  }, [tempoRestantes]);
+
+  const occupyParking = async (id) => {
+    try {
+      await axios.get(`http://192.168.0.101:8443/parking/occupy/?id=${id}`);
+      setTempoRestantes(prev => ({ ...prev, [id]: horas * 3600 }));
+      fetchVagas();
+      Alert.alert("Reserva Realizada", `Vaga reservada com sucesso!\nPreço: R$ ${(horas * precoPorMeiaHora).toFixed(2)}`);
+    } catch (error) {
+      console.error('Erro ao ocupar vaga:', error);
+      Alert.alert("Erro ao Reservar", "Não foi possível reservar a vaga. Tente novamente.");
+    }
+  };
+
+  const freeParking = async (id) => {
+    try {
+      await axios.get(`http://192.168.0.101:8443/parking/free/?id=${id}`);
+      setTempoRestantes(prev => ({ ...prev, [id]: null }));
+      fetchVagas();
+    } catch (error) {
+      console.error('Erro ao liberar vaga:', error);
+    }
+  };
+
+  const reservarVaga = (vaga) => {
+    if (!vaga.occupied) {
+      occupyParking(vaga.id);
+    } else {
+      freeParking(vaga.id);
+    }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Vagas Disponiveis</Text>
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="DD/MM/YYYY"
-          textAlign= 'center'
-          placeholderTextColor="white"
-          keyboardType="numeric"
-          maxLength={8}
-          value={formatarData(dia)}
-          onChangeText={setDia}
-        />
-        <Text style={styles.title}>Horas: {horas}</Text>
-        <Slider
-          style={styles.slider}
-          minimumValue={0.5} // 30 minutos
-          maximumValue={4} // Até 2 horas
-          step={0.5} // Incremento de 30 minutos
-          value={horas}
-          onValueChange={setHoras}
-        />
+    <ScrollView style={styles.scrollView}>
+      <View style={styles.container}>
+        <Button title="Criar Vaga" onPress={criarVaga} />
+        <Text style={styles.title}>Tempo de Reserva</Text>
+        <TextInput style={styles.input} placeholder="Horas" keyboardType="numeric" value={String(horas)} onChangeText={text => setHoras(parseFloat(text))} />
+        <Slider style={styles.slider} minimumValue={0.5} maximumValue={4} step={0.5} value={horas} onValueChange={setHoras} />
+        <Text style={styles.title}>Vagas Disponíveis</Text>
+        <View style={styles.vagasContainer}>
+          {vagas.map((vaga) => (
+            <TouchableOpacity
+              key={vaga.id}
+              style={[styles.vaga, vaga.occupied && styles.vagaReservada]}
+              onPress={() => reservarVaga(vaga)}
+            >
+              <Text>Vaga {vaga.id}</Text>
+              {vaga.occupied && tempoRestantes[vaga.id] && (
+                <>
+                  <Text>Tempo: {formatarTempo(tempoRestantes[vaga.id])}</Text>
+                  <Text>Preço R$ {(horas * precoPorMeiaHora).toFixed(2)}</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
-      <View style={styles.vagasContainer}>
-        {vagasDisponiveis.map((disponivel, index) => (
-          <TouchableOpacity
-            key={index}
-            style={[styles.vaga, !disponivel && styles.vagaReservada, vagaSelecionada === index + 1 && styles.vagaSelecionada]}
-            onPress={() => reservarVaga(index + 1)}
-            disabled={!disponivel && vagaSelecionada !== index + 1}
-          >
-            <Text>Vaga {index + 1}</Text>
-            {vagaSelecionada === index + 1 && <Text>Tempo: {formatarTempo(tempoRestante)}</Text>}
-            {vagaSelecionada === index + 1 && <Text>Preço R$ {(horas * precoPorMeiaHora).toFixed(2)}</Text>}
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
+  scrollView: {
+    backgroundColor: '#000',
+  },
   container: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    fontWeight: 'bold',
-    marginBottom: 0,
-    height: 40,
-    backgroundColor: '#000',
-  },
-  text: {
-    fontSize: 20,
-    marginBottom: 5,
-    fontWeight: 'bold',
-    color:'white',
-    textalign: 'center',
+    padding: 20,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
+    color: 'white',
     marginBottom: 20,
-    color:'white',
-  },
-  inputContainer: {
-    marginBottom: 20,
-    alignItems: 'center',
-    color:'white',
-  },
-  input: {
-    width: 200,
-    height: 40,
-    borderWidth: 1,
-    borderColor: 'white',
-    marginBottom: 10,
-    paddingHorizontal: 10,
-  },
-  slider: {
-    width: 200,
-    height: 40,
-    marginBottom: 10,
-    borderRadius: 20,
-    shadowColor: 'white',
   },
   vagasContainer: {
     flexDirection: 'row',
@@ -166,20 +149,28 @@ const styles = StyleSheet.create({
   vaga: {
     width: 100,
     height: 50,
-    margin: 9,
+    margin: 10,
     backgroundColor: 'green',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 10, // Adiciona bordas arredondadas para parecerem mais como cadeiras
-    borderWidth: 2, // Adiciona uma borda para destacar as cadeiras
-    borderColor: 'white', // Cor da borda
-    transform: [{ rotate: '-45deg' }], // Rotação para parecer como se estivessem inclinadas
-  },  
+    borderRadius: 10,
+  },
   vagaReservada: {
     backgroundColor: 'red',
   },
-  vagaSelecionada: {
-    backgroundColor: 'yellow',
+  input: {
+    width: 100,
+    height: 40,
+    borderWidth: 1,
+    borderColor: 'white',
+    marginBottom: 10,
+    paddingHorizontal: 10,
+    color: 'white',
+    textAlign: 'center',
+  },
+  slider: {
+    width: 300,
+    marginTop: 20,
   },
 });
 
