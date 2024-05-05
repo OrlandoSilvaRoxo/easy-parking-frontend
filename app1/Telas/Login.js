@@ -1,26 +1,31 @@
 import React, { useState } from 'react';
 import { View, TextInput, Button, StyleSheet, Text, Image } from 'react-native';
+import axios from 'axios';
 
 const Login = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleLogin = () => {
-    if (email === 'Rafael' && password === '123') {
-      navigation.navigate('Vagas'); // Navigate to Cadastro screen
-      //LIMPANDO OS CAMPOS DE ENTRADAS DE DADOS
-      setEmail('');
-      setPassword('');
+  const handleLogin = async () => {
+    try {
+      const payload = {
+        email: email,
+        password: password
+      };
 
-    } else {
-      alert('Usuário e/ou Senha inválidos');
+      const response = await axios.post('http://localhost:8443/user/login/', payload);
+
+      if (response.data === true) {
+        navigation.navigate('Vagas'); // Navigate to Vagas screen
+        // LIMPANDO OS CAMPOS DE ENTRADAS DE DADOS
+        setEmail('');
+        setPassword('');
+      } else {
+        alert('Usuário e/ou Senha inválidos');
+      }
+    } catch (error) {
+      console.error('Erro ao fazer login:', error);
     }
-    console.log("Logado!");
-    console.log(email);
-    console.log(password);
-
-    // Adicione aqui a lógica para validar o login
-    // e navegar para a próxima tela se for bem-sucedido
   };
 
   const handleCadastro = () => {

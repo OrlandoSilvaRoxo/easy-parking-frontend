@@ -14,14 +14,14 @@ const Cadastro = ({ navigation }) => {
   const handleCadastro = async () => {
     try {
       const payload = {
-        nome, 
-        sobrenome, 
-        telefone: telefone1, 
-        placaCarro: placaCarro1, 
-        email, 
-        senha
+        name: nome,
+        lastName: sobrenome,
+        phone: telefone1,
+        plate: placaCarro1,
+        email: email,
+        password: senha
       };
-      const response = await axios.post('http://your-backend-url.com/cadastro', payload);
+      const response = await axios.post('http://localhost:8443/user/create/', payload);
       console.log('Cadastro realizado com sucesso:', response.data);
       navigation.navigate('Login');
     } catch (error) {
