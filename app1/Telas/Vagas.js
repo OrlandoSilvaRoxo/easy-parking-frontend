@@ -7,6 +7,7 @@ const Vagas = ({ navigation }) => {
   const [vagas, setVagas] = useState([]);
   const [horas, setHoras] = useState(0.5); // 30 minutos por padrão
   const [tempoRestantes, setTempoRestantes] = useState({});
+  const [placa, setPlaca] = useState('');
   const precoPorMeiaHora = 20;
 
   const formatarTempo = (segundos) => {
@@ -16,13 +17,20 @@ const Vagas = ({ navigation }) => {
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  const calculateRemainingTime = (endTime) => {
+    const now = new Date();
+    const end = new Date(endTime);
+    const diffInSeconds = Math.floor((end - now) / 1000);
+    return Math.max(0, diffInSeconds);
+  };
+
   const fetchVagas = async () => {
     try {
       const response = await axios.get('http://192.168.0.101:8443/parking/get-all/');
       const sortedVagas = response.data.sort((a, b) => a.id - b.id);
       setVagas(sortedVagas);
       const initialTimers = sortedVagas.reduce((acc, vaga) => {
-        acc[vaga.id] = vaga.occupied ? horas * 3600 : null;
+        acc[vaga.id] = vaga.occupied ? { remainingTime: calculateRemainingTime(vaga.endTime), plate: vaga.plate } : { remainingTime: null, plate: null };
         return acc;
       }, {});
       setTempoRestantes(initialTimers);
@@ -46,16 +54,16 @@ const Vagas = ({ navigation }) => {
 
   useEffect(() => {
     const timers = {};
-    Object.entries(tempoRestantes).forEach(([id, segundos]) => {
-      if (segundos > 0) {
+    Object.entries(tempoRestantes).forEach(([id, data]) => {
+      if (data && data.remainingTime > 0) {
         timers[id] = setInterval(() => {
           setTempoRestantes(prev => {
-            const nextTime = prev[id] - 1;
+            const nextTime = prev[id].remainingTime - 1;
             if (nextTime === 0) {
               clearInterval(timers[id]);
               freeParking(id);
             }
-            return { ...prev, [id]: Math.max(0, nextTime) };
+            return { ...prev, [id]: { ...prev[id], remainingTime: nextTime } };
           });
         }, 1000);
       }
@@ -66,13 +74,31 @@ const Vagas = ({ navigation }) => {
   }, [tempoRestantes]);
 
   const occupyParking = async (id) => {
+    if (!placa) {
+      Alert.alert("Erro", "Por favor, insira a placa do carro para reservar a vaga.");
+      return;
+    }
+    const startTime = new Date().toISOString();
+    const endTime = new Date(Date.now() + horas * 3600 * 1000).toISOString();
+    const payload = JSON.stringify({
+      id: id.toString(), // Garantindo que o ID seja uma string
+      plate: placa,
+      startTime,
+      endTime,
+    });
     try {
-      await axios.get(`http://192.168.0.101:8443/parking/occupy/?id=${id}`);
-      setTempoRestantes(prev => ({ ...prev, [id]: horas * 3600 }));
-      fetchVagas();
-      Alert.alert("Reserva Realizada", `Vaga reservada com sucesso!\nPreço: R$ ${(horas * precoPorMeiaHora).toFixed(2)}`);
+      const response = await axios.post(`http://192.168.0.101:8443/parking/occupy/`, payload, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      if (response.status === 200) {
+        setTempoRestantes(prev => ({ ...prev, [id]: { remainingTime: horas * 3600, plate: placa } }));
+        fetchVagas();
+        Alert.alert("Reserva Realizada", `Vaga reservada para a placa ${placa}.\nPreço: R$ ${(horas * precoPorMeiaHora).toFixed(2)}`);
+      }
     } catch (error) {
-      console.error('Erro ao ocupar vaga:', error);
+      console.error('Erro ao ocupar vaga:', error.response ? error.response.data : error.message);
       Alert.alert("Erro ao Reservar", "Não foi possível reservar a vaga. Tente novamente.");
     }
   };
@@ -80,7 +106,7 @@ const Vagas = ({ navigation }) => {
   const freeParking = async (id) => {
     try {
       await axios.get(`http://192.168.0.101:8443/parking/free/?id=${id}`);
-      setTempoRestantes(prev => ({ ...prev, [id]: null }));
+      setTempoRestantes(prev => ({ ...prev, [id]: { remainingTime: null, plate: null } }));
       fetchVagas();
     } catch (error) {
       console.error('Erro ao liberar vaga:', error);
@@ -99,6 +125,8 @@ const Vagas = ({ navigation }) => {
     <ScrollView style={styles.scrollView}>
       <View style={styles.container}>
         <Button title="Criar Vaga" onPress={criarVaga} />
+        <Text style={styles.title}>Placa do carro</Text>
+        <TextInput style={styles.input} placeholder="Placa do carro" value={placa} onChangeText={setPlaca} />
         <Text style={styles.title}>Tempo de Reserva</Text>
         <TextInput style={styles.input} placeholder="Horas" keyboardType="numeric" value={String(horas)} onChangeText={text => setHoras(parseFloat(text))} />
         <Slider style={styles.slider} minimumValue={0.5} maximumValue={4} step={0.5} value={horas} onValueChange={setHoras} />
@@ -113,7 +141,8 @@ const Vagas = ({ navigation }) => {
               <Text>Vaga {vaga.id}</Text>
               {vaga.occupied && tempoRestantes[vaga.id] && (
                 <>
-                  <Text>Tempo: {formatarTempo(tempoRestantes[vaga.id])}</Text>
+                  <Text>Placa: {tempoRestantes[vaga.id].plate}</Text>
+                  <Text>Tempo: {formatarTempo(tempoRestantes[vaga.id].remainingTime)}</Text>
                   <Text>Preço R$ {(horas * precoPorMeiaHora).toFixed(2)}</Text>
                 </>
               )}
@@ -147,13 +176,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   vaga: {
-    width: 100,
-    height: 50,
+    width: 150,
+    height: 100,
     margin: 10,
     backgroundColor: 'green',
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 10,
+    padding: 10,
   },
   vagaReservada: {
     backgroundColor: 'red',
