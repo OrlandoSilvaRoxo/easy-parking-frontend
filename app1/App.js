@@ -6,6 +6,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import Login from './Telas/Login';
 import Cadastro from './Telas/Cadastro';
 import Vagas from './Telas/Vagas';
+import Usuarios from './Telas/Usuarios';
 
 const Stack = createStackNavigator();
 
@@ -16,6 +17,7 @@ const App = () => {
         <Stack.Screen name="Login" component={Login} />
         <Stack.Screen name="Cadastro" component={Cadastro} />
         <Stack.Screen name="Vagas" component={Vagas} />
+        <Stack.Screen name="Usuarios" component={Usuarios} />
       </Stack.Navigator>
     </NavigationContainer>
   );

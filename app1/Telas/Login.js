@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, TextInput, Button, StyleSheet, Text, Image } from 'react-native';
 import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Login = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -15,9 +16,14 @@ const Login = ({ navigation }) => {
 
       const response = await axios.post('http://192.168.0.101:8443/user/login/', payload);
 
-      if (response.data === true) {
-        navigation.navigate('Vagas'); // Navigate to Vagas screen
-        // LIMPANDO OS CAMPOS DE ENTRADAS DE DADOS
+      if (response.data.success) {
+        // Armazenar o status de administrador na sessão
+        await AsyncStorage.setItem('isAdmin', JSON.stringify(response.data.isAdmin));
+
+        // Navegar para a tela Vagas
+        navigation.navigate('Vagas');
+        
+        // Limpar os campos de entrada de dados
         setEmail('');
         setPassword('');
       } else {

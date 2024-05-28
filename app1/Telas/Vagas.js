@@ -2,13 +2,27 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Button, TextInput, ScrollView, Alert } from 'react-native';
 import axios from 'axios';
 import Slider from '@react-native-community/slider';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import AdminMenuModal from './AdminMenuModal'; // Certifique-se de que o caminho está correto
 
 const Vagas = ({ navigation }) => {
   const [vagas, setVagas] = useState([]);
   const [horas, setHoras] = useState(0.5); // 30 minutos por padrão
   const [tempoRestantes, setTempoRestantes] = useState({});
   const [placa, setPlaca] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
   const precoPorMeiaHora = 20;
+
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      const adminStatus = await AsyncStorage.getItem('isAdmin');
+      setIsAdmin(JSON.parse(adminStatus));
+    };
+
+    checkAdminStatus();
+    fetchVagas();
+  }, []);
 
   const formatarTempo = (segundos) => {
     const h = Math.floor(segundos / 3600);
@@ -48,9 +62,14 @@ const Vagas = ({ navigation }) => {
     }
   };
 
-  useEffect(() => {
-    fetchVagas();
-  }, []);
+  const deletarVaga = async (id) => {
+    try {
+      await axios.delete(`http://192.168.0.101:8443/parking/delete/?id=${id}`);
+      fetchVagas();
+    } catch (error) {
+      console.error('Erro ao deletar vaga:', error);
+    }
+  };
 
   useEffect(() => {
     const timers = {};
@@ -124,7 +143,12 @@ const Vagas = ({ navigation }) => {
   return (
     <ScrollView style={styles.scrollView}>
       <View style={styles.container}>
-        <Button title="Criar Vaga" onPress={criarVaga} />
+        {isAdmin && (
+          <Button title="Criar Vaga" onPress={criarVaga} />
+        )}
+        {isAdmin && (
+          <Button title="Admin Menu" onPress={() => setModalVisible(true)} />
+        )}
         <Text style={styles.title}>Placa do carro</Text>
         <TextInput style={styles.input} placeholder="Placa do carro" value={placa} onChangeText={setPlaca} />
         <Text style={styles.title}>Tempo de Reserva</Text>
@@ -133,23 +157,30 @@ const Vagas = ({ navigation }) => {
         <Text style={styles.title}>Vagas Disponíveis</Text>
         <View style={styles.vagasContainer}>
           {vagas.map((vaga) => (
-            <TouchableOpacity
-              key={vaga.id}
-              style={[styles.vaga, vaga.occupied && styles.vagaReservada]}
-              onPress={() => reservarVaga(vaga)}
-            >
-              <Text>Vaga {vaga.id}</Text>
-              {vaga.occupied && tempoRestantes[vaga.id] && (
-                <>
-                  <Text>Placa: {tempoRestantes[vaga.id].plate}</Text>
-                  <Text>Tempo: {formatarTempo(tempoRestantes[vaga.id].remainingTime)}</Text>
-                  <Text>Preço R$ {(horas * precoPorMeiaHora).toFixed(2)}</Text>
-                </>
+            <View key={vaga.id} style={styles.vagaContainer}>
+              <TouchableOpacity
+                style={[styles.vaga, vaga.occupied && styles.vagaReservada]}
+                onPress={() => reservarVaga(vaga)}
+              >
+                <Text>Vaga {vaga.id}</Text>
+                {vaga.occupied && tempoRestantes[vaga.id] && (
+                  <>
+                    <Text>Placa: {tempoRestantes[vaga.id].plate}</Text>
+                    <Text>Tempo: {formatarTempo(tempoRestantes[vaga.id].remainingTime)}</Text>
+                    <Text>Preço R$ {(horas * precoPorMeiaHora).toFixed(2)}</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+              {isAdmin && (
+                <TouchableOpacity style={styles.deleteButton} onPress={() => deletarVaga(vaga.id)}>
+                  <Text style={styles.deleteButtonText}>Deletar</Text>
+                </TouchableOpacity>
               )}
-            </TouchableOpacity>
+            </View>
           ))}
         </View>
       </View>
+      <AdminMenuModal visible={modalVisible} onClose={() => setModalVisible(false)} navigation={navigation} />
     </ScrollView>
   );
 };
@@ -175,10 +206,13 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'center',
   },
+  vagaContainer: {
+    margin: 10,
+    alignItems: 'center',
+  },
   vaga: {
     width: 150,
     height: 100,
-    margin: 10,
     backgroundColor: 'green',
     justifyContent: 'center',
     alignItems: 'center',
@@ -201,6 +235,16 @@ const styles = StyleSheet.create({
   slider: {
     width: 300,
     marginTop: 20,
+  },
+  deleteButton: {
+    marginTop: 10,
+    backgroundColor: 'red',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 5,
+  },
+  deleteButtonText: {
+    color: 'white',
   },
 });
 

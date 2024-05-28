@@ -23,7 +23,7 @@ const Cadastro = ({ navigation }) => {
         password: senha
       };
       const response = await axios.post('http://192.168.0.101:8443/user/create/', payload);
-      // Assume que o servidor retorna um JSON com a chave 'success'
+      
       if (response.data === true) {
         setModalMessage("Cadastro realizado com sucesso!");
         setModalVisible(true);
