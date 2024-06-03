@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Button, ScrollView, Modal, TextInput, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Modal, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
+import { FontAwesome } from '@expo/vector-icons';
 import axios from 'axios';
 import AdminMenuModal from './AdminMenuModal';
 
@@ -84,8 +85,14 @@ const Usuarios = ({ navigation }) => {
     <ScrollView style={styles.scrollView}>
       <View style={styles.container}>
         <Text style={styles.title}>Usuários</Text>
-        <Button title="Novo Usuário" onPress={() => setRegisterModalVisible(true)} />
-        <Button title="Menu Admin" onPress={() => setAdminMenuVisible(true)} />
+        <TouchableOpacity style={styles.button} onPress={() => setRegisterModalVisible(true)}>
+          <FontAwesome name="user-plus" size={20} color="white" />
+          <Text style={styles.buttonText}>Novo Usuário</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.button} onPress={() => setAdminMenuVisible(true)}>
+          <FontAwesome name="bars" size={20} color="white" />
+          <Text style={styles.buttonText}>Menu Admin</Text>
+        </TouchableOpacity>
         <View style={styles.headerContainer}>
           <Text style={styles.headerText}>Nome</Text>
           <Text style={styles.headerText}>Sobrenome</Text>
@@ -102,9 +109,15 @@ const Usuarios = ({ navigation }) => {
             <Text style={styles.userText}>{user.plate}</Text>
             <Text style={styles.userText}>{user.email}</Text>
             <View style={styles.buttonContainer}>
-              <Button title="Editar" onPress={() => openEditModal(user)} />
-              <Button title="Deletar" onPress={() => deleteUsuario(user.id)} />
-              <Button title={user.isAdmin ? "Remover Admin" : "Tornar Admin"} onPress={() => toggleAdminStatus(user.id)} />
+              <TouchableOpacity style={styles.actionButton} onPress={() => openEditModal(user)}>
+                <FontAwesome name="edit" size={20} color="white" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionButton} onPress={() => deleteUsuario(user.id)}>
+                <FontAwesome name="trash" size={20} color="white" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionButton} onPress={() => toggleAdminStatus(user.id)}>
+                <FontAwesome name={user.isAdmin ? "user-times" : "user-plus"} size={20} color="white" />
+              </TouchableOpacity>
             </View>
           </View>
         ))}
@@ -141,9 +154,13 @@ const Usuarios = ({ navigation }) => {
                 <Text style={styles.modalLabel}>Senha:</Text>
                 <TextInput style={styles.input} placeholder="Senha" value={password} onChangeText={setPassword} secureTextEntry />
               </View>
-              <View style={styles.buttonContainer}>
-                <Button title="Salvar" onPress={saveUsuario} />
-                <Button title="Cancelar" onPress={() => setModalVisible(false)} />
+              <View style={styles.modalButtonContainer}>
+                <TouchableOpacity style={styles.modalButton} onPress={saveUsuario}>
+                  <Text style={styles.modalButtonText}>Salvar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.modalButton} onPress={() => setModalVisible(false)}>
+                  <Text style={styles.modalButtonText}>Cancelar</Text>
+                </TouchableOpacity>
               </View>
             </View>
           </View>
@@ -181,9 +198,13 @@ const Usuarios = ({ navigation }) => {
                 <Text style={styles.modalLabel}>Senha:</Text>
                 <TextInput style={styles.input} placeholder="Senha" value={password} onChangeText={setPassword} secureTextEntry />
               </View>
-              <View style={styles.buttonContainer}>
-                <Button title="Criar" onPress={createUsuario} />
-                <Button title="Cancelar" onPress={() => setRegisterModalVisible(false)} />
+              <View style={styles.modalButtonContainer}>
+                <TouchableOpacity style={styles.modalButton} onPress={createUsuario}>
+                  <Text style={styles.modalButtonText}>Criar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.modalButton} onPress={() => setRegisterModalVisible(false)}>
+                  <Text style={styles.modalButtonText}>Cancelar</Text>
+                </TouchableOpacity>
               </View>
             </View>
           </View>
@@ -241,9 +262,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   buttonContainer: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     justifyContent: 'space-around',
     flex: 1,
+  },
+  actionButton: {
+    backgroundColor: '#1E90FF',
+    borderRadius: 5,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginVertical: 5,
+    alignItems: 'center',
+  },
+  actionButtonText: {
+    color: 'white',
+    fontSize: 12,
+    textAlign: 'center',
   },
   input: {
     width: '100%',
@@ -282,6 +316,34 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 5,
     color: 'black',
+  },
+  modalButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  modalButton: {
+    backgroundColor: '#1E90FF',
+    borderRadius: 5,
+    padding: 10,
+    margin: 5,
+    flex: 1,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    color: 'white',
+    textAlign: 'center',
+  },
+  button: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E90FF',
+    padding: 10,
+    borderRadius: 5,
+    marginVertical: 5,
+  },
+  buttonText: {
+    color: 'white',
+    marginLeft: 5,
   },
 });
 

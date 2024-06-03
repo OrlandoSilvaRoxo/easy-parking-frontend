@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Button, TextInput, ScrollView, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView, Alert } from 'react-native';
+import { FontAwesome } from '@expo/vector-icons';
 import axios from 'axios';
 import Slider from '@react-native-community/slider';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -76,7 +77,7 @@ const Vagas = ({ navigation }) => {
     Object.entries(tempoRestantes).forEach(([id, data]) => {
       if (data && data.remainingTime > 0) {
         timers[id] = setInterval(() => {
-          setTempoRestantes(prev => {
+          setTempoRestantes((prev) => {
             const nextTime = prev[id].remainingTime - 1;
             if (nextTime === 0) {
               clearInterval(timers[id]);
@@ -108,11 +109,11 @@ const Vagas = ({ navigation }) => {
     try {
       const response = await axios.post(`http://192.168.0.101:8443/parking/occupy/`, payload, {
         headers: {
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json',
+        },
       });
       if (response.status === 200) {
-        setTempoRestantes(prev => ({ ...prev, [id]: { remainingTime: horas * 3600, plate: placa } }));
+        setTempoRestantes((prev) => ({ ...prev, [id]: { remainingTime: horas * 3600, plate: placa } }));
         fetchVagas();
         Alert.alert("Reserva Realizada", `Vaga reservada para a placa ${placa}.\nPreço: R$ ${(horas * precoPorMeiaHora).toFixed(2)}`);
       }
@@ -125,7 +126,7 @@ const Vagas = ({ navigation }) => {
   const freeParking = async (id) => {
     try {
       await axios.get(`http://192.168.0.101:8443/parking/free/?id=${id}`);
-      setTempoRestantes(prev => ({ ...prev, [id]: { remainingTime: null, plate: null } }));
+      setTempoRestantes((prev) => ({ ...prev, [id]: { remainingTime: null, plate: null } }));
       fetchVagas();
     } catch (error) {
       console.error('Erro ao liberar vaga:', error);
@@ -144,25 +145,31 @@ const Vagas = ({ navigation }) => {
     <ScrollView style={styles.scrollView}>
       <View style={styles.container}>
         {isAdmin && (
-          <Button title="Criar Vaga" onPress={criarVaga} />
+          <TouchableOpacity style={styles.button} onPress={criarVaga}>
+            <FontAwesome name="plus-circle" size={20} color="white" />
+            <Text style={styles.buttonText}>Criar Vaga</Text>
+          </TouchableOpacity>
         )}
         {isAdmin && (
-          <Button title="Admin Menu" onPress={() => setModalVisible(true)} />
+          <TouchableOpacity style={styles.button} onPress={() => setModalVisible(true)}>
+            <FontAwesome name="bars" size={20} color="white" />
+            <Text style={styles.buttonText}>Menu Admin</Text>
+          </TouchableOpacity>
         )}
         <Text style={styles.title}>Placa do carro</Text>
         <TextInput style={styles.input} placeholder="Placa do carro" value={placa} onChangeText={setPlaca} />
         <Text style={styles.title}>Tempo de Reserva</Text>
-        <TextInput style={styles.input} placeholder="Horas" keyboardType="numeric" value={String(horas)} onChangeText={text => setHoras(parseFloat(text))} />
+        <TextInput style={styles.input} placeholder="Horas" keyboardType="numeric" value={String(horas)} onChangeText={(text) => setHoras(parseFloat(text))} />
         <Slider style={styles.slider} minimumValue={0.5} maximumValue={4} step={0.5} value={horas} onValueChange={setHoras} />
         <Text style={styles.title}>Vagas Disponíveis</Text>
         <View style={styles.vagasContainer}>
-          {vagas.map((vaga) => (
+          {vagas.map((vaga, index) => (
             <View key={vaga.id} style={styles.vagaContainer}>
               <TouchableOpacity
                 style={[styles.vaga, vaga.occupied && styles.vagaReservada]}
                 onPress={() => reservarVaga(vaga)}
               >
-                <Text>Vaga {vaga.id}</Text>
+                <Text>Vaga {index + 1}</Text>
                 {vaga.occupied && tempoRestantes[vaga.id] && (
                   <>
                     <Text>Placa: {tempoRestantes[vaga.id].plate}</Text>
@@ -173,7 +180,7 @@ const Vagas = ({ navigation }) => {
               </TouchableOpacity>
               {isAdmin && (
                 <TouchableOpacity style={styles.deleteButton} onPress={() => deletarVaga(vaga.id)}>
-                  <Text style={styles.deleteButtonText}>Deletar</Text>
+                  <FontAwesome name="trash" size={20} color="white" />
                 </TouchableOpacity>
               )}
             </View>
@@ -223,7 +230,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'red',
   },
   input: {
-    width: 100,
+    width: 200,
     height: 40,
     borderWidth: 1,
     borderColor: 'white',
@@ -231,6 +238,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     color: 'white',
     textAlign: 'center',
+    backgroundColor: 'black',
   },
   slider: {
     width: 300,
@@ -242,9 +250,19 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     paddingHorizontal: 10,
     borderRadius: 5,
+    alignItems: 'center',
   },
-  deleteButtonText: {
+  button: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E90FF',
+    padding: 10,
+    borderRadius: 5,
+    marginVertical: 5,
+  },
+  buttonText: {
     color: 'white',
+    marginLeft: 5,
   },
 });
 
